@@ -204,10 +204,9 @@ const SocialPage = () => {
   };
 
   return (
-    <div className={`${theme === "dark" ? "dark" : ""}`}>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50 dark:from-gray-900 dark:to-green-950 transition-colors duration-500">
+      <div className="min-h-screen bg-linear-to-br from-green-50 to-green-50 dark:from-gray-900 dark:to-green-950 transition-colors duration-500">
         {/* Header */}
-        <header className="bg-gradient-to-r from-green-500 to-green-700 dark:from-green-800 dark:to-green-900 text-white p-6 shadow-lg rounded-b-3xl">
+        <header className="bg-linear-to-r from-green-500 to-green-700 dark:from-green-800 dark:to-green-900 text-white p-6 shadow-lg rounded-b-3xl">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -232,7 +231,7 @@ const SocialPage = () => {
               Share an update
             </h2>
             <div className="flex space-x-4">
-              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
                 <span className="font-semibold text-green-600 dark:text-green-300">Y</span>
               </div>
               <div className="flex-1">
@@ -259,7 +258,7 @@ const SocialPage = () => {
                   <button
                     onClick={handleCreatePost}
                     disabled={!postContent.trim()}
-                    className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 dark:from-green-600 dark:to-green-700 dark:hover:from-green-700 dark:hover:to-green-800 text-white rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-3 bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 dark:from-green-600 dark:to-green-700 dark:hover:from-green-700 dark:hover:to-green-800 text-white rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Post
                   </button>
@@ -347,13 +346,12 @@ const SocialPage = () => {
         )}
 
         {/* Floating Action Button */}
-        <button className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110">
+        <button className="fixed bottom-6 right-6 w-14 h-14 bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         </button>
       </div>
-    </div>
   );
 };
 

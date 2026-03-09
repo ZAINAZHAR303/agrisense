@@ -15,9 +15,9 @@ export default function DiseaseDetectionContent() {
   };
 
   return (
-    <div className="space-y-24">
+    <div className="space-y-24 bg-green-50 dark:bg-gray-900 p-8 md:p-16">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-100 dark:from-gray-800 dark:via-gray-900 dark:to-green-900 rounded-3xl p-10 md:p-16">
+      <section className="relative overflow-hidden bg-linear-to-br from-green-50 via-white to-green-100 dark:from-gray-800 dark:via-gray-900 dark:to-green-900 rounded-3xl p-10 md:p-16">
         <div className="max-w-3xl">
           <Badge variant="success">AI Powered Disease Detection</Badge>
 

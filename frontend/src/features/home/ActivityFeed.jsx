@@ -62,7 +62,7 @@ export const ActivityFeed = () => {
               whileHover={{ x: 5 }}
               className="flex items-start gap-4 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 hover:shadow-md transition-shadow"
             >
-              <div className="text-2xl flex-shrink-0">{activity.icon}</div>
+              <div className="text-2xl shrink-0">{activity.icon}</div>
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>

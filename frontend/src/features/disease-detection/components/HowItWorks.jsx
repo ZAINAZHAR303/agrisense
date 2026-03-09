@@ -19,7 +19,7 @@ export const HowItWorks = () => {
       <div className="mt-8 space-y-4">
         {steps.map((step, idx) => (
           <div key={idx} className="flex items-start gap-4">
-            <div className="flex-shrink-0 w-8 h-8 bg-green-600 dark:bg-green-700 text-white rounded-full flex items-center justify-center font-bold">
+            <div className="shrink-0 w-8 h-8 bg-green-600 dark:bg-green-700 text-white rounded-full flex items-center justify-center font-bold">
               {idx + 1}
             </div>
             <p className="text-gray-600 dark:text-gray-300 pt-1">{step}</p>

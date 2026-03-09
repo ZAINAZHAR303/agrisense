@@ -29,7 +29,7 @@ export const DashboardPreview = () => {
           className="rounded-2xl border border-emerald-200 dark:border-emerald-900/30 bg-white dark:bg-gray-800 shadow-lg hover:shadow-2xl transition-all overflow-hidden"
         >
           {/* Mock Dashboard Header */}
-          <div className="bg-gradient-to-r from-emerald-600 to-green-500 px-8 py-6 text-white">
+          <div className="bg-linear-to-r from-emerald-600 to-green-500 px-8 py-6 text-white">
             <h3 className="text-xl font-bold">Dashboard</h3>
             <p className="text-emerald-100 text-sm">
               Real-time farm monitoring

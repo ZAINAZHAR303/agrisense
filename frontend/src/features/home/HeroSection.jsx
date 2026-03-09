@@ -65,7 +65,7 @@ export const HeroSection = () => {
           className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight"
         >
           Smart Farming Starts with{" "}
-          <span className="bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
             Intelligence
           </span>
         </motion.h1>
@@ -85,7 +85,7 @@ export const HeroSection = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/40 hover:shadow-emerald-500/60 transition-all"
+              className="px-8 py-4 bg-linear-to-r from-emerald-600 to-green-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/40 hover:shadow-emerald-500/60 transition-all"
             >
               Get Started →
             </motion.button>

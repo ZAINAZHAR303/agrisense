@@ -8,7 +8,7 @@ export default function AssistantContent() {
   const { messages, input, loading, messagesEndRef, setInput, sendMessage, handleKeyPress } = useMessages();
 
   return (
-    <div className="flex flex-col h-screen max-h-[calc(100vh-120px)] space-y-10 px-4 sm:px-6 lg:px-8 py-10 ">
+    <div className="flex flex-col h-screen max-h-[calc(100vh-120px)] space-y-10 px-4 sm:px-6 lg:px-8 py-10 bg-green-50 dark:bg-gray-900">
       <Header
         title="AgriSense AI Assistant"
         subtitle="Get smart, context-aware agricultural advice instantly"
