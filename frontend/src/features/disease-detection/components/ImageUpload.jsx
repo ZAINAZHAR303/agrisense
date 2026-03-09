@@ -1,14 +1,52 @@
 import { useImageUpload } from "@/hooks";
 import Button from "@/components/ui/Button";
+import { predictDisease } from "@/utils/api";
+import { useState } from "react";
 
-export const ImageUploadSection = ({ onAnalyze }) => {
+export const ImageUploadSection = ({ onAnalyze, onResult }) => {
   const { image, error, loading, handleImageUpload, resetImage } = useImageUpload();
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploadedFile(file);
       handleImageUpload(file);
+      setAnalysisError(null);
     }
+  };
+
+  const handleAnalyzeClick = async () => {
+    if (!uploadedFile) return;
+
+    setAnalyzing(true);
+    setAnalysisError(null);
+
+    try {
+      const result = await predictDisease(uploadedFile, 3);
+      
+      if (result.success && result.data) {
+        onResult?.(result.data);
+        onAnalyze?.();
+      } else {
+        throw new Error(result.message || "Analysis failed");
+      }
+    } catch (err) {
+      console.error("Analysis error:", err);
+      setAnalysisError(
+        err.message || "Failed to analyze image. Please ensure the backend API is running."
+      );
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleReset = () => {
+    resetImage();
+    setUploadedFile(null);
+    setAnalysisError(null);
   };
 
   return (
@@ -42,6 +80,12 @@ export const ImageUploadSection = ({ onAnalyze }) => {
         </div>
       )}
 
+      {analysisError && (
+        <div className="mt-4 p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg text-red-700 dark:text-red-200 text-sm">
+          {analysisError}
+        </div>
+      )}
+
       {image && (
         <div className="mt-6">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Preview</p>
@@ -52,10 +96,14 @@ export const ImageUploadSection = ({ onAnalyze }) => {
           />
 
           <div className="mt-4 flex gap-3">
-            <Button onClick={onAnalyze} disabled={loading} className="flex-1">
-              {loading ? "Analyzing..." : "Analyze Disease"}
+            <Button 
+              onClick={handleAnalyzeClick} 
+              disabled={loading || analyzing} 
+              className="flex-1"
+            >
+              {analyzing ? "Analyzing..." : "Analyze Disease"}
             </Button>
-            <Button variant="secondary" onClick={resetImage}>
+            <Button variant="secondary" onClick={handleReset} disabled={analyzing}>
               Reset
             </Button>
           </div>

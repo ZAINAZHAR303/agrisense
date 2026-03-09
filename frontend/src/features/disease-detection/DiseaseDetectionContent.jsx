@@ -2,16 +2,24 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui";
-import { ImageUploadSection, HowItWorks, ResultPreview, TrustFeatures } from "./components";
+import { ImageUploadSection, HowItWorks, ResultPreview, ResultDisplay, TrustFeatures } from "./components";
 import Button from "@/components/ui/Button";
 
 export default function DiseaseDetectionContent() {
-  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState(null);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
-  const handleAnalyze = async () => {
-    setAnalyzing(true);
-    // Simulate API call
-    setTimeout(() => setAnalyzing(false), 2000);
+  const handleAnalyze = () => {
+    setHasAnalyzed(true);
+  };
+
+  const handleResult = (resultData) => {
+    setResult(resultData);
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setHasAnalyzed(false);
   };
 
   return (
@@ -36,12 +44,15 @@ export default function DiseaseDetectionContent() {
 
       {/* Upload Section */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-        <ImageUploadSection onAnalyze={handleAnalyze} />
+        <ImageUploadSection onAnalyze={handleAnalyze} onResult={handleResult} />
         <HowItWorks />
       </section>
 
-      {/* Result Preview Section */}
-      <ResultPreview />
+      {/* Result Display - Shows real results when available */}
+      {result && <ResultDisplay result={result} />}
+
+      {/* Result Preview Section - Shows sample result when no analysis yet */}
+      {!result && <ResultPreview />}
 
       {/* Trust Features Section */}
       <TrustFeatures />

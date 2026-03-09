@@ -172,16 +172,7 @@ async def predict_batch(
     files: List[UploadFile] = File(...),
     top_k: int = 3
 ):
-    """
-    Predict plant disease for multiple images
     
-    Args:
-        files: List of image files
-        top_k: Number of top predictions per image
-    
-    Returns:
-        Batch prediction results
-    """
     if predictor is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     

@@ -67,21 +67,23 @@ class DiseasePredictor:
         Returns:
             Preprocessed image array
         """
+        pil_image = None
+        
         # Convert to PIL Image if needed
         if isinstance(image_input, (str, Path)):
-            image = Image.open(image_input).convert('RGB')
+            pil_image = Image.open(image_input).convert('RGB')
         elif isinstance(image_input, np.ndarray):
-            image = Image.fromarray(image_input).convert('RGB')
+            pil_image = Image.fromarray(image_input).convert('RGB')
         elif isinstance(image_input, Image.Image):
-            image = image.convert('RGB')
+            pil_image = image_input.convert('RGB')
         else:
-            raise ValueError("Unsupported image input type")
+            raise ValueError(f"Unsupported image input type: {type(image_input)}")
         
         # Resize to model input size
-        image = image.resize(config.IMAGE_SIZE)
+        pil_image = pil_image.resize(config.IMAGE_SIZE)
         
         # Convert to array and normalize
-        image_array = np.array(image, dtype=np.float32)
+        image_array = np.array(pil_image, dtype=np.float32)
         image_array = image_array / 255.0
         
         # Add batch dimension

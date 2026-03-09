@@ -1,357 +1,509 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import AuthModal from "@/components/AuthModal";
+import { uploadToCloudinary } from "@/utils/cloudinary";
 
-// Placeholder avatars (using initial letters as fallback)
-const getAvatarInitial = (name) => {
-  return name.split(" ")[1]?.[0] || name[0];
+const API_URL = 'http://localhost:5000/api';
+const COMMENTS_PREVIEW = 2;
+
+// ─── Shared helpers ────────────────────────────────────────────────────────────
+
+const Avatar = ({ src, name, size = "md" }) => {
+  const sz = { sm: "w-8 h-8", md: "w-10 h-10", lg: "w-11 h-11", xl: "w-14 h-14" }[size];
+  return (
+    <img
+      src={src || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=16a34a&color=fff&bold=true`}
+      alt={name || 'User'}
+      className={`${sz} rounded-full object-cover flex-shrink-0`}
+    />
+  );
 };
 
-const samplePosts = [
-  {
-    id: 1,
-    user: "Farmer Ali",
-    avatar: "https://static.vecteezy.com/system/resources/previews/001/993/889/non_2x/beautiful-latin-woman-avatar-character-icon-free-vector.jpg",
-    time: "2 hours ago",
-    content: "Planted tomatoes today. Can't wait to see them grow!",
-    likes: 12,
-    comments: 4,
-    liked: false,
-    commentsList: [
-      { id: 1, user: "Farmer Bob", text: "Great! What variety did you plant?", time: "1 hour ago" },
-      { id: 2, user: "Farmer Sara", text: "Remember to water them regularly!", time: "30 mins ago" },
-    ],
-  },
-  {
-    id: 2,
-    user: "Farmer Sara",
-    avatar: "https://static.vecteezy.com/system/resources/previews/002/002/332/non_2x/ablack-man-avatar-character-isolated-icon-free-vector.jpg",
-    time: "5 hours ago",
-    content: "Using the AgriSense AI recommendations for soil nutrients. Early results are promising!",
-    likes: 20,
-    comments: 6,
-    liked: true,
-    commentsList: [
-      { id: 1, user: "Farmer Ali", text: "That's amazing! How accurate are the recommendations?", time: "3 hours ago" },
-      { id: 2, user: "AgriSense Team", text: "Great to hear! Our AI model has 94% accuracy for soil analysis.", time: "2 hours ago" },
-    ],
-  },
-  {
-    id: 3,
-    user: "Farmer Hamid",
-    avatar: "https://static.vecteezy.com/system/resources/previews/002/002/403/non_2x/man-with-beard-avatar-character-isolated-icon-free-vector.jpg",
-    time: "1 day ago",
-    content: "Anyone facing pest issues in peppers? Need advice.",
-    likes: 15,
-    comments: 3,
-    liked: false,
-    commentsList: [
-      { id: 1, user: "Farmer John", text: "Try neem oil spray. Works well for me!", time: "20 hours ago" },
-      { id: 2, user: "Farmer Maria", text: "Check for aphids. Use ladybugs as natural predators.", time: "18 hours ago" },
-    ],
-  },
-];
+const timeAgo = (date) => {
+  if (!date) return '';
+  const s = Math.floor((Date.now() - new Date(date)) / 1000);
+  if (s < 60) return 'Just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 
-const CommentPopup = ({ post, onClose, onAddComment }) => {
-  const [newComment, setNewComment] = useState("");
+// ─── PostCard (Facebook-style inline comments) ────────────────────────────────
 
-  const handleSubmit = (e) => {
+const PostCard = ({ post, user, token, posts, onPostsUpdate, onAuthRequired }) => {
+  const [showAll, setShowAll] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [showInput, setShowInput] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const inputRef = useRef(null);
+
+  const comments = post.comments || [];
+  const hidden = comments.length - COMMENTS_PREVIEW;
+  const visible = showAll ? comments : comments.slice(-COMMENTS_PREVIEW);
+  const liked = user && post.likes?.some(l => l.userId === user.id);
+  const tok = () => token || localStorage.getItem('token');
+
+  const openComment = () => {
+    if (!user) { onAuthRequired(); return; }
+    setShowInput(true);
+    setTimeout(() => inputRef.current?.focus(), 60);
+  };
+
+  const handleLike = async () => {
+    if (!user) { onAuthRequired(); return; }
+    try {
+      const res = await fetch(`${API_URL}/posts/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tok()}` },
+        body: JSON.stringify({ postId: post.id }),
+      });
+      const d = await res.json();
+      if (d.success) onPostsUpdate(posts.map(p => p.id !== post.id ? p : {
+        ...p,
+        likes: d.liked
+          ? [...(p.likes || []), { userId: user.id }]
+          : (p.likes || []).filter(l => l.userId !== user.id),
+      }));
+    } catch (e) { console.error(e); }
+  };
+
+  const handleComment = async (e) => {
     e.preventDefault();
-    if (newComment.trim()) {
-      onAddComment(post.id, newComment);
-      setNewComment("");
-    }
+    if (!commentText.trim() || posting) return;
+    setPosting(true);
+    try {
+      const res = await fetch(`${API_URL}/posts/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tok()}` },
+        body: JSON.stringify({ postId: post.id, text: commentText }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        onPostsUpdate(posts.map(p => p.id !== post.id ? p : {
+          ...p, comments: [...(p.comments || []), d.comment],
+        }));
+        setCommentText('');
+        setShowAll(true);
+      }
+    } catch (e) { console.error(e); }
+    finally { setPosting(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this post?')) return;
+    try {
+      const res = await fetch(`${API_URL}/posts/${post.id}`, {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${tok()}` },
+      });
+      const d = await res.json();
+      if (d.success) onPostsUpdate(posts.filter(p => p.id !== post.id));
+    } catch (e) { console.error(e); }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-              Comments ({post.comments})
-            </h3>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition"
-            >
-              <svg className="w-6 h-6 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex items-center mt-4 space-x-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-              <span className="font-semibold text-green-600 dark:text-green-300">
-                {getAvatarInitial(post.user)}
-              </span>
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-800 dark:text-gray-100">{post.user}</h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{post.time}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-gray-700 dark:text-gray-200">{post.content}</p>
-        </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
-        <div className="p-6 overflow-y-auto max-h-[50vh]">
-          {post.commentsList?.map((comment) => (
-            <div key={comment.id} className="mb-4 last:mb-0">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-medium text-blue-600 dark:text-blue-300">
-                    {getAvatarInitial(comment.user)}
-                  </span>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center gap-3">
+          <Avatar src={post.user?.avatar} name={post.user?.name} size="lg" />
+          <div>
+            <p className="font-semibold text-[15px] text-gray-900 dark:text-white leading-tight">{post.user?.name || 'Unknown'}</p>
+            <p className="text-[12px] text-gray-400 flex items-center gap-1 mt-0.5">
+              {timeAgo(post.createdAt)}
+              <span>·</span>
+              <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+              </svg>
+              <span className="text-green-500 font-medium">Public</span>
+            </p>
+          </div>
+        </div>
+        {user?.id === post.userId && (
+          <button
+            onClick={handleDelete}
+            title="Delete post"
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* ── Content ── */}
+      {post.content && (
+        <p className="px-4 pb-3 text-[15px] leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{post.content}</p>
+      )}
+
+      {/* ── Media ── */}
+      {post.mediaUrl && (
+        <div className="border-y border-gray-100 dark:border-gray-700">
+          {post.mediaType === 'video'
+            ? <video src={post.mediaUrl} controls className="w-full max-h-[480px] bg-black" />
+            : <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[480px] object-cover" />}
+        </div>
+      )}
+
+      {/* ── Engagement counts ── */}
+      {(post.likes?.length > 0 || comments.length > 0) && (
+        <div className="flex items-center justify-between px-4 py-2">
+          {post.likes?.length > 0 ? (
+            <div className="flex items-center gap-1.5 text-[13px] text-gray-500 dark:text-gray-400">
+              <span className="w-[18px] h-[18px] bg-green-500 rounded-full flex items-center justify-center text-white font-bold" style={{ fontSize: 10 }}>♥</span>
+              {post.likes.length}
+            </div>
+          ) : <span />}
+          {comments.length > 0 && (
+            <button onClick={openComment} className="text-[13px] text-gray-500 dark:text-gray-400 hover:underline">
+              {comments.length} comment{comments.length !== 1 ? 's' : ''}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Action bar ── */}
+      <div className="border-t border-gray-100 dark:border-gray-700" />
+      <div className="flex items-center px-2 py-0.5">
+        <button
+          onClick={handleLike}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[14px] font-medium transition-colors ${
+            liked
+              ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          {liked
+            ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+            : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>}
+          Like
+        </button>
+        <button
+          onClick={openComment}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[14px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          Comment
+        </button>
+      </div>
+
+      {/* ── Comments section ── */}
+      {(comments.length > 0 || showInput) && (
+        <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-2.5">
+
+          {/* Load previous comments */}
+          {hidden > 0 && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition flex items-center gap-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+              View {hidden} previous comment{hidden !== 1 ? 's' : ''}
+            </button>
+          )}
+
+          {/* Comment list */}
+          {visible.map(c => (
+            <div key={c.id} className="flex items-start gap-2">
+              <Avatar src={c.user?.avatar} name={c.user?.name} size="sm" />
+              <div className="flex-1 min-w-0">
+                <div className="bg-gray-100 dark:bg-gray-700/70 rounded-2xl rounded-tl-sm px-3 py-2 inline-block max-w-full">
+                  <span className="font-semibold text-[13px] text-gray-900 dark:text-white mr-1.5">{c.user?.name || 'Unknown'}</span>
+                  <span className="text-[14px] text-gray-700 dark:text-gray-200 break-words">{c.text}</span>
                 </div>
-                <div className="flex-1">
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-3">
-                    <div className="flex justify-between items-start">
-                      <h5 className="font-medium text-gray-800 dark:text-gray-100">{comment.user}</h5>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{comment.time}</span>
-                    </div>
-                    <p className="mt-1 text-gray-700 dark:text-gray-200">{comment.text}</p>
-                  </div>
-                </div>
+                <p className="text-[11px] text-gray-400 mt-0.5 ml-2">{timeAgo(c.createdAt)}</p>
               </div>
             </div>
           ))}
-        </div>
 
-        <form onSubmit={handleSubmit} className="p-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex space-x-3">
-            <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Write a comment..."
-              className="flex-1 p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400"
-            />
+          {/* Collapse */}
+          {showAll && hidden > 0 && (
             <button
-              type="submit"
-              className="px-6 py-3 bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-xl shadow transition"
+              onClick={() => setShowAll(false)}
+              className="text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition flex items-center gap-1"
             >
-              Post
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              Show less
             </button>
-          </div>
-        </form>
-      </div>
+          )}
+
+          {/* Comment input */}
+          {showInput && (
+            <form onSubmit={handleComment} className="flex items-center gap-2 pt-0.5">
+              <Avatar src={user?.avatar} name={user?.name} size="sm" />
+              <div className="flex-1 flex items-center bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2 gap-2 focus-within:ring-2 focus-within:ring-green-400/40 transition">
+                <input
+                  ref={inputRef}
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  placeholder="Write a comment..."
+                  className="flex-1 bg-transparent text-[14px] text-gray-800 dark:text-gray-200 outline-none placeholder-gray-400"
+                  disabled={posting}
+                />
+                <button
+                  type="submit"
+                  disabled={!commentText.trim() || posting}
+                  className="text-green-500 hover:text-green-600 disabled:opacity-30 transition flex-shrink-0"
+                >
+                  {posting
+                    ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+                    : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
+// ─── SocialPage ───────────────────────────────────────────────────────────────
+
 const SocialPage = () => {
   const [theme, setTheme] = useState("light");
-  const [posts, setPosts] = useState(samplePosts);
+  const [posts, setPosts] = useState([]);
   const [postContent, setPostContent] = useState("");
-  const [selectedPost, setSelectedPost] = useState(null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setTheme("dark");
+    if (window.matchMedia("(prefers-color-scheme: dark)").matches) setTheme("dark");
+
+    const savedToken = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    if (savedToken && savedUser) {
+      try {
+        const payload = JSON.parse(atob(savedToken.split('.')[1]));
+        if (payload.exp * 1000 < Date.now()) {
+          console.warn('⚠️ Token expired. Please log in again.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        } else {
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+        }
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
+    fetchPosts();
   }, []);
 
-  const handleLike = (postId) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          liked: !post.liked,
-          likes: post.liked ? post.likes - 1 : post.likes + 1
-        };
-      }
-      return post;
-    }));
+  const fetchPosts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/posts`);
+      const d = await res.json();
+      if (d.success) setPosts(d.posts);
+    } catch (e) { console.error('❌ Failed to fetch posts:', e.message); }
+    finally { setLoading(false); }
   };
 
-  const handleAddComment = (postId, commentText) => {
-    const newComment = {
-      id: Date.now(),
-      user: "You",
-      text: commentText,
-      time: "Just now"
-    };
-
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          comments: post.comments + 1,
-          commentsList: [...post.commentsList, newComment]
-        };
-      }
-      return post;
-    }));
+  const handleAuthSuccess = (userData, userToken) => {
+    setUser(userData);
+    setToken(userToken);
+    localStorage.setItem('token', userToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setShowAuthModal(false);
   };
 
-  const handleCreatePost = () => {
-    if (!postContent.trim()) return;
+  const handleLogout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  };
 
-    const newPost = {
-      id: posts.length + 1,
-      user: "You",
-      avatar: "",
-      time: "Just now",
-      content: postContent,
-      likes: 0,
-      comments: 0,
-      liked: false,
-      commentsList: []
-    };
+  const handleFileChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) { alert('Image or video only'); return; }
+    if (f.size > 10 * 1024 * 1024) { alert('File size must be under 10 MB'); return; }
+    setMediaFile(f);
+    setMediaPreview(URL.createObjectURL(f));
+    setMediaUrl('');
+  };
 
-    setPosts([newPost, ...posts]);
-    setPostContent("");
+  const handleCreatePost = async () => {
+    if (!user) { setShowAuthModal(true); return; }
+    if (!postContent.trim() && !mediaFile && !mediaUrl) return;
+    setUploading(true);
+    try {
+      let finalUrl = mediaUrl, mediaType = null;
+      if (mediaFile) {
+        const r = await uploadToCloudinary(mediaFile);
+        finalUrl = r.url; mediaType = r.type;
+      } else if (mediaUrl) {
+        mediaType = mediaUrl.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image';
+      }
+      const tk = token || localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/posts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tk}` },
+        body: JSON.stringify({ content: postContent, mediaUrl: finalUrl, mediaType }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setPosts(prev => [d.post, ...prev]);
+        setPostContent(''); setMediaFile(null); setMediaPreview(null); setMediaUrl('');
+      } else { alert(d.message); }
+    } catch (e) { console.error(e); alert('Failed to create post'); }
+    finally { setUploading(false); }
   };
 
   return (
-      <div className="min-h-screen bg-linear-to-br from-green-50 to-green-50 dark:from-gray-900 dark:to-green-950 transition-colors duration-500">
-        {/* Header */}
-        <header className="bg-linear-to-r from-green-500 to-green-700 dark:from-green-800 dark:to-green-900 text-white p-6 shadow-lg rounded-b-3xl">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold">AgriSense Community</h1>
-                <p className="mt-2 text-md opacity-90">Connect with farmers and share your updates</p>
+    <div className={theme === "dark" ? "dark" : ""}>
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors duration-300">
+
+        {/* ── Sticky Header ── */}
+        <header className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="max-w-[680px] mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow">
+                <span className="text-white text-lg leading-none">🌱</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+              <div>
+                <p className="text-[15px] font-bold text-gray-900 dark:text-white leading-none">AgriSense</p>
+                <p className="text-[11px] text-gray-400 leading-none mt-0.5">Community Feed</p>
+              </div>
+            </div>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <Avatar src={user.avatar} name={user.name} size="md" />
+                <p className="hidden sm:block text-[13px] font-semibold text-gray-800 dark:text-white">{user.name}</p>
+                <button
+                  onClick={handleLogout}
+                  className="ml-1 text-[12px] px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-[13px] font-semibold rounded-lg transition shadow-sm"
+              >
+                Login / Sign Up
+              </button>
+            )}
+          </div>
+        </header>
+
+        <main className="max-w-[680px] mx-auto px-3 py-4 space-y-3">
+
+          {/* ── Create Post ── */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+            <div className="flex items-start gap-3">
+              <Avatar src={user?.avatar} name={user?.name || '?'} size="md" />
+              <div className="flex-1">
+                {user ? (
+                  <textarea
+                    value={postContent}
+                    onChange={e => setPostContent(e.target.value)}
+                    placeholder="What's on your mind? Share your farming update..."
+                    rows={2}
+                    className="w-full bg-gray-100 dark:bg-gray-700 rounded-2xl px-4 py-2.5 text-[15px] text-gray-800 dark:text-gray-200 placeholder-gray-400 outline-none resize-none focus:ring-2 focus:ring-green-400/30 transition"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="w-full text-left bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-2xl px-4 py-2.5 text-[14px] text-gray-400 transition"
+                  >
+                    What's on your mind?
+                  </button>
+                )}
+
+                {/* Media preview */}
+                {mediaPreview && (
+                  <div className="relative mt-3 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700">
+                    {mediaFile?.type.startsWith('video')
+                      ? <video src={mediaPreview} controls className="w-full max-h-52" />
+                      : <img src={mediaPreview} alt="Preview" className="w-full max-h-52 object-cover" />}
+                    <button
+                      onClick={() => { setMediaFile(null); setMediaPreview(null); }}
+                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* URL input */}
+                {user && !mediaFile && (
+                  <input
+                    type="url"
+                    value={mediaUrl}
+                    onChange={e => setMediaUrl(e.target.value)}
+                    placeholder="Or paste image / video URL..."
+                    className="w-full mt-2 px-3 py-2 text-[13px] rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-400/30 transition"
+                  />
+                )}
+
+                {/* Toolbar */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-gray-500 dark:text-gray-400 transition ${user ? 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Photo / Video
+                    <input type="file" accept="image/*,video/*" onChange={handleFileChange} disabled={!user} className="hidden" />
+                  </label>
+                  <button
+                    onClick={handleCreatePost}
+                    disabled={!user || uploading || (!postContent.trim() && !mediaFile && !mediaUrl)}
+                    className="px-5 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-semibold rounded-lg transition shadow-sm"
+                  >
+                    {uploading ? 'Posting...' : 'Post'}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </header>
 
-        <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-8">
-          {/* Post Creation */}
-          <section className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
-              Share an update
-            </h2>
-            <div className="flex space-x-4">
-              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
-                <span className="font-semibold text-green-600 dark:text-green-300">Y</span>
-              </div>
-              <div className="flex-1">
-                <textarea
-                  value={postContent}
-                  onChange={(e) => setPostContent(e.target.value)}
-                  className="w-full p-4 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition resize-none"
-                  rows={3}
-                  placeholder="What's on your mind? Share your farming experiences..."
-                />
-                <div className="mt-4 flex justify-between items-center">
-                  <div className="flex space-x-4">
-                    <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                    <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                      </svg>
-                    </button>
-                  </div>
-                  <button
-                    onClick={handleCreatePost}
-                    disabled={!postContent.trim()}
-                    className="px-8 py-3 bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 dark:from-green-600 dark:to-green-700 dark:hover:from-green-700 dark:hover:to-green-800 text-white rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Post
-                  </button>
-                </div>
-              </div>
+          {/* ── Feed ── */}
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-10 h-10 border-[3px] border-green-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="mt-3 text-[14px] text-gray-500 dark:text-gray-400">Loading posts...</p>
             </div>
-          </section>
-
-          {/* Community Feed */}
-          <section className="space-y-6">
-            {posts.map((post) => (
-              <div
+          ) : posts.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 py-16 text-center shadow-sm">
+              <p className="text-5xl mb-3">🌾</p>
+              <p className="text-[15px] font-semibold text-gray-700 dark:text-gray-300">No posts yet</p>
+              <p className="text-[13px] text-gray-400 mt-1">Be the first to share something with the community!</p>
+            </div>
+          ) : (
+            posts.map(post => (
+              <PostCard
                 key={post.id}
-                className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-14 h-14 rounded-full bg-linear-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg">
-                      {/* {getAvatarInitial(post.user)} */}
-                      <img src={post.avatar} width={56} height={56} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                        {post.user}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {post.time}
-                      </p>
-                    </div>
-                  </div>
-                  <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                    </svg>
-                  </button>
-                </div>
-                <p className="mt-4 text-gray-700 dark:text-gray-200 leading-relaxed">{post.content}</p>
-                <div className="mt-6 flex items-center space-x-6 text-gray-500 dark:text-gray-400">
-                  <button
-                    onClick={() => handleLike(post.id)}
-                    className={`flex items-center space-x-2 transition ${post.liked ? 'text-green-500' : 'hover:text-green-500'}`}
-                  >
-                    {post.liked ? (
-                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    )}
-                    <span className="font-medium">{post.likes}</span>
-                  </button>
-                  <button
-                    onClick={() => setSelectedPost(post)}
-                    className="flex items-center space-x-2 hover:text-blue-500 transition"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <span className="font-medium">{post.comments}</span>
-                  </button>
-                  <button className="flex items-center space-x-2 hover:text-purple-500 transition">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                    <span className="font-medium">Share</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </section>
+                post={post}
+                user={user}
+                token={token}
+                posts={posts}
+                onPostsUpdate={setPosts}
+                onAuthRequired={() => setShowAuthModal(true)}
+              />
+            ))
+          )}
         </main>
 
-        {/* Comment Popup */}
-        {selectedPost && (
-          <CommentPopup
-            post={selectedPost}
-            onClose={() => setSelectedPost(null)}
-            onAddComment={handleAddComment}
-          />
-        )}
-
-        {/* Floating Action Button */}
-        <button className="fixed bottom-6 right-6 w-14 h-14 bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-        </button>
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
       </div>
+    </div>
   );
 };
 
