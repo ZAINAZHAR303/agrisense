@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 // console.log("JWT:", process.env.JWT_SECRET);
 // Middleware - CORS must be first!
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://10.1.58.22:3000'],
+  origin:'',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -63,6 +63,7 @@ process.on('uncaughtException', (error) => {
 });
 
 // Start server
+// Start server
 const startServer = async () => {
   try {
     console.log('🚀 Starting AgriSense Backend Server...');
@@ -77,13 +78,17 @@ const startServer = async () => {
     
     console.log('');
     console.log('⏳ Step 2: Starting Express server...');
-    const server = app.listen(PORT, '127.0.0.1', () => {
+    
+    // Listen on all network interfaces (0.0.0.0) instead of just localhost
+    const server = app.listen(PORT, '0.0.0.0', () => {
       const address = server.address();
       console.log('═══════════════════════════════════════');
-      console.log(`🚀 Server LISTENING on http://127.0.0.1:${PORT}`);
-      console.log(`📊 Address:`, address);
+      console.log(`🚀 Server LISTENING on http://0.0.0.0:${PORT}`);
+      console.log(`📡 Accessible from:`);
+      console.log(`   - Local: http://localhost:${PORT}`);
+      console.log(`   - Network: http://YOUR_COMPUTER_IP:${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Health check: http://127.0.0.1:${PORT}/health`);
+      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
       console.log('═══════════════════════════════════════');
       console.log('✅ Server is ready to accept connections!');
     });
@@ -96,11 +101,7 @@ const startServer = async () => {
       process.exit(1);
     });
 
-    server.on('listening', () => {
-      console.log('📡 Server event: listening');
-    });
-
-    console.log('⏳ Server listen() called, waiting for callback...');
+    console.log('✅ Server started successfully!');
   } catch (error) {
     console.error('');
     console.error('💥 Failed to start server:');
