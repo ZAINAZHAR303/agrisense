@@ -30,12 +30,12 @@ export default function DiseaseDetectionContent() {
           <Badge variant="success">AI Powered Disease Detection</Badge>
 
           <h1 className="mt-4 text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight">
-            Detect Plant Diseases
+            Detect Cotton Leaf Diseases
             <span className="text-green-600 dark:text-green-400"> Instantly With AI</span>
           </h1>
 
           <p className="mt-6 text-lg text-gray-600 dark:text-gray-300">
-            Upload a leaf image and let our deep learning model analyze plant health, identify diseases, and suggest effective treatments
+            Upload a cotton leaf image and let the deep learning model identify disease symptoms, confidence, and recommended actions
           </p>
         </div>
 
