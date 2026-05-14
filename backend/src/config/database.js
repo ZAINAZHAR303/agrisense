@@ -64,7 +64,11 @@ const connectDB = async () => {
 
 // Get database instance using native MongoDB driver from Mongoose
 const getDB = () => {
-  return mongoose.connection.db;
+  const db = mongoose.connection.db;
+  if (!db) {
+    console.error('❌ MongoDB connection not initialized. Connection state:', mongoose.connection.readyState);
+  }
+  return db;
 };
 // connectDB();
 module.exports = { connectDB, getDB };

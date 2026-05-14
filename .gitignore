@@ -62,6 +62,9 @@ tensorboard_logs/
 # Environment
 .env
 .envrc
+rag_system/.env
+rag_system/.venv/
+rag_system/storage/
 
 # OS
 Thumbs.db
