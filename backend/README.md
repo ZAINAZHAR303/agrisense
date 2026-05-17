@@ -29,11 +29,13 @@ npm install
 ```env
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
+MONGODB_URI_STANDARD=optional_non_srv_mongodb_uri
 JWT_SECRET=your_jwt_secret
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 FRONTEND_URL=http://localhost:3000
+ALLOW_START_WITHOUT_DB=false
 ```
 
 3. Start the server:
@@ -44,6 +46,18 @@ npm run dev
 # Production mode
 npm start
 ```
+
+### MongoDB DNS SRV troubleshooting
+
+If your network blocks SRV DNS lookups (error like `querySrv ECONNREFUSED`), keep `MONGODB_URI` for Atlas and add a non-SRV URI in `MONGODB_URI_STANDARD`.
+
+For local frontend/backend development when MongoDB is temporarily unreachable, set:
+
+```env
+ALLOW_START_WITHOUT_DB=true
+```
+
+The API will boot, but routes that require database access will return errors until MongoDB is reachable.
 
 ## API Endpoints
 
