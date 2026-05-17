@@ -1,9 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const { getDB } = require('../config/database');
 const authMiddleware = require('../middleware/auth');
-const { ObjectId } = require('mongodb');
 
 const router = express.Router();
 // console.log("JWT:", process.env.JWT_SECRET);
@@ -147,7 +147,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     const db = await getDB();
     
     const user = await db.collection('users').findOne(
-      { _id: new ObjectId(req.user.userId) },
+      { _id: new mongoose.Types.ObjectId(req.user.userId) },
       { projection: { password: 0 } }
     );
 
