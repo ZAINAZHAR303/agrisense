@@ -11,6 +11,7 @@ import {
   saveChatSession,
   translateAssistantText,
   speakText,
+  deleteChatSession,
 } from "@/utils/api";
 
 const LANGUAGES = [
@@ -142,9 +143,11 @@ export default function AssistantContent() {
   ]);
   const [input, setInput] = useState("");
   const [inputLanguage, setInputLanguage] = useState("ur");
+  const [inputTargetLanguage, setInputTargetLanguage] = useState("en");
   const [language, setLanguage] = useState("ur");
   const [loading, setLoading] = useState(false);
   const [translating, setTranslating] = useState(null);
+  const [inputTranslating, setInputTranslating] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [savedSessions, setSavedSessions] = useState([]);
@@ -375,6 +378,30 @@ export default function AssistantContent() {
     }
   };
 
+  const handleDeleteChat = async (sessionIdToDelete) => {
+    if (!token) return;
+    
+    if (!window.confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setError("");
+      await deleteChatSession({ token, sessionId: sessionIdToDelete });
+      
+      // Refresh the saved sessions list
+      const data = await getChatSessions(token);
+      setSavedSessions(data.sessions || []);
+      
+      // If the deleted chat was the current one, clear it
+      if (sessionId === sessionIdToDelete) {
+        startNewChat();
+      }
+    } catch (err) {
+      setError(err.message || "Could not delete chat. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-emerald-50 dark:bg-gray-950 transition-colors duration-300">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -457,6 +484,42 @@ export default function AssistantContent() {
                     ))}
                   </select>
                   <span className="text-xs text-gray-500 dark:text-gray-400">Input language</span>
+
+                  <select
+                    value={inputTargetLanguage}
+                    onChange={(e) => setInputTargetLanguage(e.target.value)}
+                    className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-100"
+                    title="Translate input to"
+                  >
+                    {LANGUAGES.map((item) => (
+                      <option key={item.code} value={item.code}>{item.label}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={async () => {
+                      if (!input.trim()) return;
+                      setInputTranslating(true);
+                      setError("");
+                      try {
+                        const result = await translateAssistantText({ text: input, language: inputTargetLanguage });
+                        if (result && result.text) {
+                          setInput(result.text);
+                          setInputLanguage(inputTargetLanguage);
+                        }
+                      } catch (err) {
+                        setError(err.message || "Translation failed.");
+                      } finally {
+                        setInputTranslating(false);
+                      }
+                    }}
+                    disabled={inputTranslating || !input.trim()}
+                    className="rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {inputTranslating ? "Translating..." : "Translate"}
+                  </button>
+
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Translate before sending</span>
                 </div>
                 
                 <div className="flex items-end gap-3">
@@ -521,7 +584,11 @@ export default function AssistantContent() {
                       try {
                         const data = await getChatSession({ token, sessionId: session.id });
                         if (data.session?.messages?.length) {
-                          setMessages(data.session.messages);
+                          const messagesWithIds = data.session.messages.map((msg) => ({
+                            ...msg,
+                            id: msg.id || crypto.randomUUID(),
+                          }));
+                          setMessages(messagesWithIds);
                           setLanguage(data.session.language || "ur");
                           setInputLanguage(data.session.language || "ur");
                         }
@@ -532,6 +599,16 @@ export default function AssistantContent() {
                     className="flex-1 rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-gray-800"
                   >
                     <span className="line-clamp-2">{session.title}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteChat(session.id);
+                    }}
+                    title="Delete this chat"
+                    className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
+                  >
+                    <RiDeleteBin2Line className="w-4 h-4" />
                   </button>
                 </div>
               ))}

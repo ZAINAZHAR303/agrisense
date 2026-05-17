@@ -5,7 +5,7 @@
 const DISEASE_API_BASE_URL =
   process.env.NEXT_PUBLIC_DISEASE_API_URL || "http://localhost:8000";
 const RAG_API_BASE_URL =
-  process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8001";
 const APP_API_BASE_URL =
   process.env.NEXT_PUBLIC_APP_API_URL || "http://localhost:5000/api";
 
@@ -195,6 +195,19 @@ export async function getChatSession({ token, sessionId }) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.message || `Fetch chat failed with status ${response.status}`);
+  }
+  return data;
+}
+
+export async function deleteChatSession({ token, sessionId }) {
+  const response = await fetch(`${APP_API_BASE_URL}/chat-history/${sessionId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || `Delete chat failed with status ${response.status}`);
   }
   return data;
 }
