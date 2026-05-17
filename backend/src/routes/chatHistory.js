@@ -1,5 +1,5 @@
 const express = require('express');
-const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
 const { getDB } = require('../config/database');
 const authMiddleware = require('../middleware/auth');
 
@@ -52,7 +52,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       });
     }
     const session = await db.collection('chatSessions').findOne({
-      _id: new ObjectId(req.params.id),
+      _id: new mongoose.Types.ObjectId(req.params.id),
       userId: req.user.userId,
     });
 
@@ -106,7 +106,7 @@ router.post('/', authMiddleware, async (req, res) => {
     if (sessionId) {
       const result = await db.collection('chatSessions').findOneAndUpdate(
         {
-          _id: new ObjectId(sessionId),
+          _id: new mongoose.Types.ObjectId(sessionId),
           userId: req.user.userId,
         },
         {
@@ -173,7 +173,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       });
     }
     await db.collection('chatSessions').deleteOne({
-      _id: new ObjectId(req.params.id),
+      _id: new mongoose.Types.ObjectId(req.params.id),
       userId: req.user.userId,
     });
 
