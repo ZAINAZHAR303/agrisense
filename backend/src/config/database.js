@@ -1,11 +1,26 @@
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+import dns from 'dns';
+import mongoose from 'mongoose';
+
 
 // if (!process.env.MONGODB_URI) {
 //   throw new Error('Please add your MongoDB URI to .env file');
 // }
 
 // const uri = process.env.MONGODB_URI;
-const uri = "mongodb+srv://zainazhar457_db_user:zYXbC8xv1tHD3VvR@cluster0.ezjmnyu.mongodb.net/agrisense?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGODB_URI || "mongodb+srv://zainazhar457_db_user:zYXbC8xv1tHD3VvR@cluster0.ezjmnyu.mongodb.net/agrisense?retryWrites=true&w=majority&appName=Cluster0";
+
+const dnsServers = (process.env.DNS_SERVERS || '1.1.1.1,8.8.8.8')
+  .split(',')
+  .map((server) => server.trim())
+  .filter(Boolean);
+
+try {
+  dns.setServers(dnsServers);
+  console.log('🌐 DNS servers set for Node:', dnsServers.join(', '));
+} catch (error) {
+  console.warn('⚠️ Could not override DNS servers:', error.message);
+}
 
 console.log('📡 Attempting to connect to MongoDB...');
 console.log('🔗 MongoDB URI:', uri ? 'Found' : 'Missing');
@@ -71,4 +86,4 @@ const getDB = () => {
   return db;
 };
 // connectDB();
-module.exports = { connectDB, getDB };
+export { connectDB, getDB };
