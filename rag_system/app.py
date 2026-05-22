@@ -184,9 +184,10 @@ def initialize_rag():
     rag_loading = True
     startup_error = None
     try:
-        from langchain_huggingface import HuggingFaceEmbeddings
+        print("🔄 Starting RAG initialization...")
         from langchain_community.vectorstores import FAISS
 
+        print(f"📁 Checking FAISS index at: {config.VECTORSTORE_DIR}")
         if not config.VECTORSTORE_DIR.exists():
             raise RuntimeError(
                 f"FAISS index not found at {config.VECTORSTORE_DIR}. "
@@ -194,20 +195,27 @@ def initialize_rag():
                 "For Render deployment: Ensure storage/faiss_index is committed to Git or use a build script."
             )
 
+        print("✅ FAISS directory found. Loading embeddings...")
+        from langchain_huggingface import HuggingFaceEmbeddings
+        
+        # Load with lower resource usage
         embeddings = HuggingFaceEmbeddings(
             model_name=config.EMBEDDING_MODEL_NAME,
             encode_kwargs={"normalize_embeddings": True},
+            model_kwargs={"device": "cpu"},  # Explicitly use CPU
         )
+        print("✅ Embeddings loaded. Loading FAISS index...")
         vectorstore = FAISS.load_local(
             str(config.VECTORSTORE_DIR),
             embeddings,
             allow_dangerous_deserialization=True,
         )
+        print("✅ FAISS index loaded. Initializing LLM...")
         llm = create_llm()
-        print("RAG initialization complete")
+        print("✅ RAG initialization complete!")
     except Exception as exc:
         startup_error = str(exc)
-        print(f"RAG initialization failed: {startup_error}")
+        print(f"❌ RAG initialization failed: {startup_error}")
     finally:
         rag_loading = False
 
