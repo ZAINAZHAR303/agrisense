@@ -3,12 +3,14 @@
  */
 
 const DISEASE_API_BASE_URL =
-  process.env.NEXT_PUBLIC_DISEASE_API_URL || "http://localhost:8000";
+// http://localhost:8000
+// https://agrisence-plant-disease-detection.onrender.com
+  process.env.NEXT_PUBLIC_DISEASE_API_URL || "https://agrisence-plant-disease-detection.onrender.com";
 const RAG_API_BASE_URL =
-  process.env.NEXT_PUBLIC_RAG_API_URL || "https://agrisence.onrender.com";
+  process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8001";
 const APP_API_BASE_URL =
-  process.env.NEXT_PUBLIC_APP_API_URL || "http://localhost:5000/api";
-
+  process.env.NEXT_PUBLIC_APP_API_URL || "https://agrisence-backend.onrender.com/api";
+  // process.env.NEXT_PUBLIC_APP_API_URL || "http://localhost:5000/api";
 /**
  * Predict plant disease from image
  * @param {File} imageFile - The image file to analyze

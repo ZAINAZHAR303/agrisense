@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import AuthModal from "@/components/AuthModal";
 import { uploadToCloudinary } from "@/utils/cloudinary";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "https://agrisence-backend.onrender.com/api";
 const COMMENTS_PREVIEW = 2;
 
 // ─── Claymorphism Avatar with Status Indicator ─────────────────────────────

@@ -73,7 +73,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setLoading(true);
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || 'http://localhost:5000/api';
+      const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || 'https://agrisence-backend.onrender.com/api';
       const endpoint = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/signup`;
       const body = isLogin 
         ? { email: formData.email, password: formData.password }

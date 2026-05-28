@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
-const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || 'https://agrisence-backend.onrender.com/api';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
