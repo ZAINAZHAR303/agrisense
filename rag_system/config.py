@@ -13,7 +13,12 @@ OCR_OUTPUT_PATH = BASE_DIR / os.getenv("RAG_OCR_OUTPUT", "storage/ocr_pages.json
 VECTORSTORE_DIR = BASE_DIR / os.getenv("RAG_VECTORSTORE_DIR", "storage/faiss_index")
 
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# LONGCAT API (Commented out - switch back by uncommenting)
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.longcat.chat/openai")
+
+# GROQ API (Active)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "900"))
 CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "150"))

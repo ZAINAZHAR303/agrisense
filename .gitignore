@@ -36,12 +36,13 @@ PlantVillage/
 # Model files - Large files
 *.h5
 *.hdf5
-*.onnx
+# *.onnx  # Exception: cotton_model.onnx is tracked for production
 *.pb
 *.ckpt
 *.pth
 *.weights
 *.safetensors
+# Allow specific production models
 
 # TensorBoard logs
 logs/
