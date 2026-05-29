@@ -24,12 +24,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# CORS middleware must be added first (before other middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 vectorstore = None
@@ -77,17 +79,28 @@ class AskResponse(BaseModel):
 
 
 def create_llm():
-    if config.OPENAI_API_KEY:
-        from langchain_openai import ChatOpenAI
+    # GROQ (Active)
+    if config.GROQ_API_KEY:
+        from langchain_groq import ChatGroq
 
-        return ChatOpenAI(
-            model_name=os.getenv("OPENAI_MODEL", "LongCat-Flash-Chat"),
-            api_key=config.OPENAI_API_KEY,
-            base_url=os.getenv("OPENAI_BASE_URL", "https://api.longcat.chat/openai"),
+        return ChatGroq(
+            model_name=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            api_key=config.GROQ_API_KEY,
             temperature=0.2,
         )
+    
+    # LONGCAT (Commented out - uncomment to use)
+    # if config.OPENAI_API_KEY:
+    #     from langchain_openai import ChatOpenAI
+    #
+    #     return ChatOpenAI(
+    #         model_name=os.getenv("OPENAI_MODEL", "LongCat-2.0-Preview"),
+    #         api_key=config.OPENAI_API_KEY,
+    #         base_url=os.getenv("OPENAI_BASE_URL", "https://api.longcat.chat/openai"),
+    #         temperature=0.2,
+    #     )
 
-    raise RuntimeError("No LLM API key found. Add OPENAI_API_KEY to rag_system/.env")
+    raise RuntimeError("No LLM API key found. Add GROQ_API_KEY to rag_system/.env")
 
 
 def get_language_name(code: str):
@@ -113,6 +126,36 @@ def format_history(history):
         if text:
             lines.append(f"{role}: {text}")
     return "\n".join(lines)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Ensure CORS headers are sent even on HTTP errors"""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Catch all exceptions and return with CORS headers"""
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
 
 
 def normalize_language_code(value: Optional[str], default: str = "ur") -> str:
@@ -197,7 +240,6 @@ def initialize_rag():
 
         print("✅ FAISS directory found. Loading embeddings...")
         from langchain_huggingface import HuggingFaceEmbeddings
-        
         # Load with lower resource usage
         embeddings = HuggingFaceEmbeddings(
             model_name=config.EMBEDDING_MODEL_NAME,
@@ -270,7 +312,7 @@ async def health():
         "llm_loaded": llm is not None,
         "rag_loading": rag_loading,
         "startup_error": startup_error,
-        "model": os.getenv("OPENAI_MODEL", "LongCat-Flash-Chat"),
+        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
         "languages": config.SUPPORTED_LANGUAGES,
     }
 
