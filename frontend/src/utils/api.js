@@ -7,7 +7,7 @@ const DISEASE_API_BASE_URL =
 // https://agrisence-plant-disease-detection.onrender.com
   process.env.NEXT_PUBLIC_DISEASE_API_URL || "https://agrisence-plant-disease-detection.onrender.com";
 const RAG_API_BASE_URL =
-  process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_RAG_API_URL || "https://agrisence.onrender.com";
 const APP_API_BASE_URL =
   process.env.NEXT_PUBLIC_APP_API_URL || "https://agrisence-backend.onrender.com/api";
   // process.env.NEXT_PUBLIC_APP_API_URL || "http://localhost:5000/api";
