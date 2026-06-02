@@ -6,29 +6,30 @@ const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all posts
+// Get all posts (with pagination)
 router.get('/', async (req, res) => {
   try {
-    console.log('📥 GET /posts request received');
     const db = getDB();
 
     if (!db) {
-      console.error('❌ Database not available');
       return res.status(500).json({
         success: false,
         message: 'Database connection not available',
       });
     }
 
-    console.log('✅ Database connection OK');
-    console.log('🔍 Fetching posts from database...');
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const total = await db.collection('posts').countDocuments();
     const posts = await db
       .collection('posts')
       .find({})
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .toArray();
-
-    console.log("✅ POSTS FOUND:", posts.length);
 
     // Collect all user IDs safely
     const userIds = new Set();
@@ -58,8 +59,7 @@ router.get('/', async (req, res) => {
 
     // Clean + enrich posts
     const enrichedPosts = posts.map(post => {
-      const { _id, ...rest } = post;   // 🔥 remove Mongo _id
-      console.log("current post:", post); 
+      const { _id, ...rest } = post;
       return {
         ...rest,
         id: _id.toString(),
@@ -71,12 +71,19 @@ router.get('/', async (req, res) => {
         })),
       };
     });
-    
-    console.log('✅ Enriched posts:', JSON.stringify(enrichedPosts, null, 2));
+
+    const totalPages = Math.ceil(total / limit);
 
     res.json({
       success: true,
       posts: enrichedPosts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasMore: page < totalPages,
+      },
     });
 
   } catch (error) {
