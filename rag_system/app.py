@@ -239,12 +239,11 @@ def initialize_rag():
             )
 
         print("FAISS directory found. Loading embeddings...")
-        from langchain_huggingface import HuggingFaceEmbeddings
-        # Load with lower resource usage
-        embeddings = HuggingFaceEmbeddings(
-            model_name=config.EMBEDDING_MODEL_NAME,
-            encode_kwargs={"normalize_embeddings": True},
-            model_kwargs={"device": "cpu"},  # Explicitly use CPU
+        from langchain_community.embeddings import FastEmbedEmbeddings
+        # Use lightweight FastEmbed for low memory footprint
+        embeddings = FastEmbedEmbeddings(
+            model_name="BAAI/bge-small-en-v1.5",
+            max_length=512,
         )
         print("Embeddings loaded. Loading FAISS index...")
         vectorstore = FAISS.load_local(
