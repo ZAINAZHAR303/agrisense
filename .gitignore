@@ -33,6 +33,14 @@ PlantVillage/
 *.jpeg
 *.JPEG
 
+# Allow frontend/public image assets
+!frontend/public/**/*.jpg
+!frontend/public/**/*.JPG
+!frontend/public/**/*.png
+!frontend/public/**/*.PNG
+!frontend/public/**/*.jpeg
+!frontend/public/**/*.JPEG
+
 # Model files - Large files
 *.h5
 *.hdf5
